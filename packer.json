@@ -1,0 +1,122 @@
+{
+  "push": {
+    "name": "joga/{{ user `name` }}",
+    "token": "{{ user `token` }}"
+  },
+  "variables": {
+    "cpus": "1",
+    "disk_size": "20480",
+    "memory": "512",
+
+    "iso_checksum": "27bd866242ee058b7a5754e83d8ee8403e216b93d130d800852a96f41c34d86a",
+    "iso_checksum_type": "sha256",
+    "iso_url": "http://buildlogs.centos.org/rolling/7/isos/x86_64/CentOS-7-x86_64-Minimal-1611.iso",
+
+    "ssh_password": "vagrant",
+    "ssh_username": "vagrant",
+    "ssh_port": "22",
+
+    "update": "false",
+
+    "virtualbox_guest_os_type": "RedHat_64",
+    "virtualbox_paravirtprovider": "default",
+    "virtualbox_nictype": "virtio",
+
+    "token": "",
+    "version": "",
+    "name": "webxloo"
+  },
+  "builders": [
+    {
+      "type": "virtualbox-iso",
+      "guest_os_type": "{{ user `virtualbox_guest_os_type` }}",
+
+      "iso_url": "{{ user `iso_url` }}",
+      "iso_checksum": "{{ user `iso_checksum` }}",
+      "iso_checksum_type": "{{ user `iso_checksum_type` }}",
+
+      "ssh_password": "{{ user `ssh_password` }}",
+      "ssh_username": "{{ user `ssh_username` }}",
+      "ssh_wait_timeout": "50000s",
+      "ssh_port": "{{ user `ssh_port` }}",
+
+      "disk_size": "{{ user `disk_size` }}",
+
+      "headless": false,
+      "boot_wait": "10s",
+
+      "vboxmanage": [
+        [
+          "modifyvm", "{{.Name}}", "--memory", "{{ user `memory` }}"
+        ],
+        [
+          "modifyvm", "{{.Name}}", "--cpus", "{{ user `cpus` }}"
+        ],
+        [
+          "modifyvm", "{{.Name}}", "--paravirtprovider", "{{ user `virtualbox_paravirtprovider` }}"
+        ],
+        [
+          "modifyvm", "{{.Name}}", "--nictype1", "{{ user `virtualbox_nictype` }}"
+        ]
+      ],
+      "vm_name": "{{ user `name` }}",
+
+      "http_directory": ".",
+
+      "boot_command": [
+        "<tab> text ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ks.cfg<enter>"
+      ],
+
+      "guest_additions_path": "VBoxGuestAdditions_{{.Version}}.iso",
+      "hard_drive_interface": "sata",
+
+      "shutdown_command": "echo 'vagrant' | sudo -S shutdown -P now"
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "shell",
+      "scripts": [
+        "script/fix-slow-dns.sh",
+        "script/sshd.sh",
+        "script/update.sh",
+        "script/install.sh",
+        "script/vagrant.sh",
+        "script/virtualbox.sh",
+        "script/cleanup.sh"
+      ],
+      "environment_vars": [
+        "UPDATE={{user `update`}}",
+        "SSH_USERNAME={{user `ssh_username`}}",
+        "SSH_PASSWORD={{user `ssh_password`}}",
+        "INSTALL_VAGRANT_KEY=true",
+        "PACKER_LOG=1",
+        "PACKER_LOG_PATH=packerlog.txt"
+      ],
+      "execute_command": "echo 'vagrant' | {{.Vars}} sudo -S -E bash '{{.Path}}'"
+    }
+  ],
+  "post-processors": [[
+    {
+      "type": "vagrant",
+      "keep_input_artifact": false,
+      "compression_level": 9,
+      "output": "{{ user `name` }}_test.box"
+    },
+    {
+      "type": "atlas",
+      "token": "{{ user `token` }}",
+      "artifact": "joga/{{ user `name` }}",
+      "artifact_type": "vagrant.box",
+      "metadata": {
+        "description": "Webxloo virtualbox image",
+        "provider": "virtualbox",
+        "version": "{{ user `version` }}"
+      }
+    },
+    {
+      "type": "checksum",
+      "checksum_types": "sha256"
+    }
+  ]]
+}
